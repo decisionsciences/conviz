@@ -156,7 +156,7 @@ def conv2d(x_, filter_size, filter_num, stride=1):
 def fc(x_, nodes, keep_prob_=1, act=tf.nn.relu):
     """
     Wrapper for fully-connected layer
-    :param x_: tensor, input to fully-connected alyer
+    :param x_: tensor, input to fully-connected layer
     :param nodes: int, number of nodes in layer
     :param keep_prob_: float, optional, keep probability for dropout operation
     :param act: tf.nn method, optional, activation function
@@ -170,7 +170,7 @@ def fc(x_, nodes, keep_prob_=1, act=tf.nn.relu):
         n = 1
         for s in shape[1:]:
             n *= s.value
-        x_ = tf.reshape(x_, tf.pack([-1, n]))
+        x_ = tf.reshape(x_, tf.stack([-1, n]))
         x_.set_shape([None, n])
 
     # get number of column in input tensor
@@ -204,10 +204,13 @@ def maxpool(x_, size, stride):
     :param stride: int
     :return: tensor
     """
-    return tf.nn.max_pool(x_,
+    activations = tf.nn.max_pool(x_,
                           ksize=[1, size, size, 1],
                           strides=[1, stride, stride, 1],
                           padding='SAME')
+    tf.add_to_collection('maxpool_output', activations)
+    return activations
+
 
 # Reshape inputs
 x_reshaped = tf.reshape(x, shape=[-1, 28, 28, 1])
@@ -232,7 +235,7 @@ predictions = fc(predictions, 1024, keep_prob)
 predictions = fc(predictions, n_classes, keep_prob, act=None)
 
 # Define loss operation
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(predictions, y))
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=predictions, labels=y))
 
 # Define optimizer
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
@@ -242,10 +245,11 @@ correct_predictions = tf.equal(tf.argmax(predictions, 1), tf.argmax(y, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
 
 # Initializing the variables
-init = tf.initialize_all_variables()
+init = tf.global_variables_initializer()
 
 # Launch the graph
 with tf.Session() as sess:
+    #sess = tf.Session()
     sess.run(init)
     step = 1
     # Keep training until reach max iterations
@@ -259,11 +263,11 @@ with tf.Session() as sess:
             loss, acc = sess.run([cost, accuracy], feed_dict={x: batch_x,
                                                               y: batch_y,
                                                               keep_prob: 1.})
-            print("\rIter " + str(step*batch_size) + ", Minibatch Loss= " +
+            print("Iter " + str(step*batch_size) + ", Minibatch Loss= " +
                   "{:.6f}".format(loss) + ", Training Accuracy= " +
-                  "{:.5f}".format(acc), end='')
+                  "{:.5f}".format(acc))
         step += 1
-    print("\rOptimization Finished!")
+    print("Optimization Finished!")
 
     # Calculate accuracy for 256 mnist test images
     print("Testing Accuracy:",
